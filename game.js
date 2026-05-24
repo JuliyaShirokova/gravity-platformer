@@ -1,7 +1,7 @@
 const config = {
   type: Phaser.AUTO,
-  width: 640,
-  height: 360,
+  width: 800,
+  height: 500,
   backgroundColor: '#000000',
   physics: {
     default: 'arcade',
@@ -19,10 +19,10 @@ function create() {
   // Фон со звёздами
   const bg = this.add.graphics();
   bg.fillStyle(0x1a1a2e);
-  bg.fillRect(0, 0, 640, 360);
-  for (let i = 0; i < 80; i++) {
-    const x = Phaser.Math.Between(0, 640);
-    const y = Phaser.Math.Between(0, 360);
+  bg.fillRect(0, 0, 800, 500);
+  for (let i = 0; i < 100; i++) {
+    const x = Phaser.Math.Between(0, 800);
+    const y = Phaser.Math.Between(0, 500);
     const size = Phaser.Math.FloatBetween(0.5, 2);
     const brightness = Phaser.Math.Between(150, 255);
     bg.fillStyle(Phaser.Display.Color.GetColor(brightness, brightness, brightness));
@@ -109,39 +109,38 @@ function create() {
 
   // Платформы
   const platforms = this.physics.add.staticGroup();
-  platforms.create(320, 350, 'tile').setDisplaySize(640, 20).refreshBody();
-  platforms.create(320, 10,  'tile').setDisplaySize(640, 20).refreshBody();
-  platforms.create(150, 250, 'tile').setDisplaySize(120, 16).refreshBody();
-  platforms.create(350, 180, 'tile').setDisplaySize(120, 16).refreshBody();
-  platforms.create(530, 250, 'tile').setDisplaySize(120, 16).refreshBody();
-  platforms.create(250, 110, 'tile').setDisplaySize(120, 16).refreshBody();
-  platforms.create(470, 110, 'tile').setDisplaySize(120, 16).refreshBody();
-
+    platforms.create(400, 470, 'tile').setDisplaySize(800, 20).refreshBody();
+    platforms.create(400, 10,  'tile').setDisplaySize(800, 20).refreshBody();
+    platforms.create(150, 340, 'tile').setDisplaySize(120, 16).refreshBody();
+    platforms.create(400, 260, 'tile').setDisplaySize(120, 16).refreshBody();
+    platforms.create(650, 340, 'tile').setDisplaySize(120, 16).refreshBody();
+    platforms.create(280, 160, 'tile').setDisplaySize(120, 16).refreshBody();
+    platforms.create(560, 160, 'tile').setDisplaySize(120, 16).refreshBody();                           
   // Монеты
   this.coins = this.physics.add.staticGroup();
   const coinPositions = [
-    [150, 220], [350, 150], [530, 220],
-    [250, 80],  [470, 80],  [400, 320]
+  [150, 310], [400, 230], [650, 310],
+  [280, 130], [560, 130], [500, 440]
   ];
   coinPositions.forEach(([x, y]) => {
     this.coins.create(x, y, 'coin').refreshBody();
   });
 
   // Игрок
-  this.player = this.physics.add.sprite(60, 300, 'player');
+  this.player = this.physics.add.sprite(60, 420, 'player');
   this.player.setBounce(0).setCollideWorldBounds(true);
   this.physics.add.collider(this.player, platforms);
 
   // Враг
   const enemyGfx = this.make.graphics({ x: 0, y: 0, add: false });
-  this.enemy = this.physics.add.sprite(400, 300, 'enemy');
+  this.enemy = this.physics.add.sprite(500, 420, 'enemy');
   this.enemy.setCollideWorldBounds(true).setBounce(1, 0);
   this.enemy.setVelocityX(120);
   this.physics.add.collider(this.enemy, platforms);
 
   // Жизни
   this.lives = 3;
-  this.livesText = this.add.text(550, 10, '❤️ x3', {
+  this.livesText = this.add.text(740, 10, '❤️ x3', {
     fontSize: '14px', fill: '#ff4444'
   }).setScrollFactor(0);
 
@@ -152,12 +151,51 @@ function create() {
   }).setScrollFactor(0);
 
   // Сбор монет
-  this.physics.add.overlap(this.player, this.coins, (player, coin) => {
-    coin.destroy();
-    this.score++;
-    this.scoreText.setText('Монеты: ' + this.score);
-    this.playSound(500, 900, 0.1);
-  });
+    this.physics.add.overlap(this.player, this.coins, (player, coin) => {
+        coin.destroy();
+        this.score++;
+        this.scoreText.setText('Монеты: ' + this.score);
+        this.playSound(500, 900, 0.1);
+
+        if (this.coins.countActive() === 0) {
+            this.physics.pause();
+
+            // Затемнение
+            const overlay = this.add.graphics();
+            overlay.fillStyle(0x000000, 0.6);
+            overlay.fillRect(0, 0, 800, 500);
+
+            // Текст победы
+            this.add.text(400, 180, '🎉 УРОВЕНЬ ПРОЙДЕН!', {
+                fontSize: '36px', fill: '#ffdd00'
+            }).setOrigin(0.5);
+
+            this.add.text(400, 250, 'Монеты: ' + this.score + ' / 6', {
+                fontSize: '22px', fill: '#ffffff'
+            }).setOrigin(0.5);
+
+            this.add.text(400, 310, 'Нажми ПРОБЕЛ для продолжения', {
+                fontSize: '16px', fill: '#aaaaaa'
+            }).setOrigin(0.5);
+
+            // Победная мелодия
+            const winNotes = [262, 330, 392, 523, 392, 523, 659];
+            let i = 0;
+            const winTimer = this.time.addEvent({
+                delay: 150,
+                repeat: winNotes.length - 1,
+                callback: () => {
+                    this.playSound(winNotes[i], winNotes[i], 0.15);
+                    i++;
+                }
+            });
+
+            // Перезапуск по пробелу
+            this.input.keyboard.once('keydown-SPACE', () => {
+                this.scene.restart();
+            });
+        }
+    }); 
 
   // Столкновение с врагом
   this.physics.add.overlap(this.player, this.enemy, () => {
@@ -200,9 +238,9 @@ function create() {
   }.bind(this);
 
   // Подсказка
-  this.add.text(10, 340, 'S D движение  |  E прыжок вверх  |  X прыжок вниз  |  SHIFT гравитация', {
-    fontSize: '10px', fill: '#aaaaaa'
-  }).setScrollFactor(0);
+ this.add.text(10, 478, 'S D движение  |  E прыжок вверх  |  X прыжок вниз  |  SHIFT гравитация', {
+  fontSize: '10px', fill: '#aaaaaa'
+ }).setScrollFactor(0);
 
   // Музыка после первого нажатия
   const notes = [329,329,0,329,0,262,329,0,392,0,0,0,196,0,0,0];
