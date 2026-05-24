@@ -2,7 +2,6 @@ const config = {
   type: Phaser.AUTO,
   width: 640,
   height: 360,
-  backgroundColor: '#1a1a2e',
   physics: {
     default: 'arcade',
     arcade: { gravity: { y: 600 }, debug: false }
@@ -15,6 +14,21 @@ const game = new Phaser.Game(config);
 function preload() {}
 
 function create() {
+   // Фон со звёздами
+    const bg = this.add.graphics();
+    bg.fillStyle(0x1a1a2e);
+    bg.fillRect(0, 0, 640, 360);
+
+    for (let i = 0; i < 80; i++) {
+    const x = Phaser.Math.Between(0, 640);
+    const y = Phaser.Math.Between(0, 360);
+    const size = Phaser.Math.FloatBetween(0.5, 2);
+    const brightness = Phaser.Math.Between(150, 255);
+    const color = Phaser.Display.Color.GetColor(brightness, brightness, brightness);
+    bg.fillStyle(color);
+    bg.fillRect(x, y, size, size);
+    }
+  
   const platforms = this.physics.add.staticGroup();
 
   // Пол
@@ -97,38 +111,42 @@ function create() {
     this.soundCoin = jsfxr([0,,,0.02,0.1,0.6,,,0.54,,,0.36,,,,,,,,1,,,,,0.5]);
   
     // Музыка
-  // Фоновая 8-битная музыка
-const notes = [
-  329, 329, 0, 329, 0, 262, 329, 0,
-  392, 0, 0, 0, 196, 0, 0, 0
-];
+    // Фоновая 8-битная музыка
+    const notes = [
+    329, 329, 0, 329, 0, 262, 329, 0,
+    392, 0, 0, 0, 196, 0, 0, 0
+    ];
 
-let noteIndex = 0;
-const bpm = 140;
-const noteTime = (60 / bpm) * 0.5;
+    let noteIndex = 0;
+    const bpm = 140;
+    const noteTime = (60 / bpm) * 0.5;
 
-this.musicTimer = this.time.addEvent({
-  delay: noteTime * 1000,
-  loop: true,
-  callback: () => {
-    const freq = notes[noteIndex % notes.length];
-    if (freq > 0) {
-      const ctx = this.audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-      this.audioCtx = ctx;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = 'square';
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.08, ctx.currentTime);
-      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + noteTime * 0.8);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + noteTime);
-    }
+    // Музыка запустится после первого нажатия клавиши
+    this.input.keyboard.once('keydown', () => {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    this.audioCtx = ctx;
+
+    this.musicTimer = this.time.addEvent({
+        delay: noteTime * 1000,
+        loop: true,
+        callback: () => {
+        const freq = notes[noteIndex % notes.length];
+        if (freq > 0) {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.type = 'square';
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0.08, ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, ctx.currentTime + noteTime * 0.8);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + noteTime);
+        }
         noteIndex++;
-    }
-  });
+        }
+    });
+    });
 
   // Жизни
     this.lives = 3;
