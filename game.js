@@ -30,6 +30,7 @@ function create() {
   }
 
   // Текстура платформы
+  if (this.textures.exists('tile')) this.textures.remove('tile');
   const tg = this.make.graphics({ x: 0, y: 0, add: false });
   tg.fillStyle(0x8B4513);
   tg.fillRect(0, 0, 32, 16);
@@ -45,6 +46,7 @@ function create() {
   tg.destroy();
 
   // Текстура игрока
+  if (this.textures.exists('player')) this.textures.remove('player');
   const pg = this.make.graphics({ x: 0, y: 0, add: false });
   const playerPixels = [
     [0,0,1,1,1,1,0,0],
@@ -73,6 +75,7 @@ function create() {
   pg.destroy();
 
   // Текстура врага — слайм
+  if (this.textures.exists('enemy')) this.textures.remove('enemy');
   const eg = this.make.graphics({ x: 0, y: 0, add: false });
   const enemyPixels = [
     [0,0,0,1,1,1,1,0],
@@ -97,6 +100,7 @@ function create() {
   eg.destroy();
 
   // Текстура монеты
+  if (this.textures.exists('coin')) this.textures.remove('coin');
   const cg = this.make.graphics({ x: 0, y: 0, add: false });
   cg.fillStyle(0xffdd00);
   cg.fillCircle(6, 6, 6);
@@ -132,11 +136,23 @@ function create() {
   this.physics.add.collider(this.player, platforms);
 
   // Враг
-  const enemyGfx = this.make.graphics({ x: 0, y: 0, add: false });
-  this.enemy = this.physics.add.sprite(500, 420, 'enemy');
-  this.enemy.setCollideWorldBounds(true).setBounce(1, 0);
-  this.enemy.setVelocityX(120);
-  this.physics.add.collider(this.enemy, platforms);
+    const enemyGfx = this.make.graphics({ x: 0, y: 0, add: false });
+    this.enemy = this.physics.add.sprite(500, 420, 'enemy');
+    this.enemy.setCollideWorldBounds(true);
+    this.enemy.setVelocityX(120);
+    this.enemyDirection = 1;
+    this.enemyChasing = false;
+    // Таймер разворота патруля каждые 2 секунды
+    this.time.addEvent({
+    delay: 2000,
+    loop: true,
+    callback: () => {
+        if (!this.enemyChasing) {
+        this.enemyDirection *= -1;
+        }
+    }
+    });
+    this.physics.add.collider(this.enemy, platforms);
 
   // Жизни
   this.lives = 3;
@@ -157,44 +173,74 @@ function create() {
         this.scoreText.setText('Монеты: ' + this.score);
         this.playSound(500, 900, 0.1);
 
-        if (this.coins.countActive() === 0) {
-            this.physics.pause();
+   if (this.coins.countActive() === 0) {
+    this.physics.pause();
 
-            // Затемнение
-            const overlay = this.add.graphics();
-            overlay.fillStyle(0x000000, 0.6);
-            overlay.fillRect(0, 0, 800, 500);
+    // Собираем все элементы победного экрана в массив
+    const winScreenObjects = [];
 
-            // Текст победы
-            this.add.text(400, 180, '🎉 УРОВЕНЬ ПРОЙДЕН!', {
-                fontSize: '36px', fill: '#ffdd00'
-            }).setOrigin(0.5);
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.6);
+    overlay.fillRect(0, 0, 800, 500);
+    winScreenObjects.push(overlay);
 
-            this.add.text(400, 250, 'Монеты: ' + this.score + ' / 6', {
-                fontSize: '22px', fill: '#ffffff'
-            }).setOrigin(0.5);
+    winScreenObjects.push(this.add.text(400, 180, '🎉 УРОВЕНЬ ПРОЙДЕН!', {
+        fontSize: '36px', fill: '#ffdd00'
+    }).setOrigin(0.5));
 
-            this.add.text(400, 310, 'Нажми ПРОБЕЛ для продолжения', {
-                fontSize: '16px', fill: '#aaaaaa'
-            }).setOrigin(0.5);
+    winScreenObjects.push(this.add.text(400, 250, 'Монеты: ' + this.score + ' / 6', {
+        fontSize: '22px', fill: '#ffffff'
+    }).setOrigin(0.5));
 
-            // Победная мелодия
-            const winNotes = [262, 330, 392, 523, 392, 523, 659];
-            let i = 0;
-            const winTimer = this.time.addEvent({
-                delay: 150,
-                repeat: winNotes.length - 1,
-                callback: () => {
-                    this.playSound(winNotes[i], winNotes[i], 0.15);
-                    i++;
-                }
-            });
+    winScreenObjects.push(this.add.text(400, 310, 'Нажми ПРОБЕЛ для продолжения', {
+        fontSize: '16px', fill: '#aaaaaa'
+    }).setOrigin(0.5));
 
-            // Перезапуск по пробелу
-            this.input.keyboard.once('keydown-SPACE', () => {
-                this.scene.restart();
-            });
+    // Победная мелодия
+    const winNotes = [262, 330, 392, 523, 392, 523, 659];
+    let i = 0;
+    this.time.addEvent({
+        delay: 150,
+        repeat: winNotes.length - 1,
+        callback: () => {
+            this.playSound(winNotes[i], winNotes[i], 0.15);
+            i++;
         }
+    });
+
+    // Перезапуск по пробелу
+    this.input.keyboard.once('keydown-SPACE', () => {
+        // Удаляем все элементы экрана победы
+        winScreenObjects.forEach(obj => obj.destroy());
+
+        // Сброс монет
+        coinPositions.forEach(([x, y]) => {
+            this.coins.create(x, y, 'coin').refreshBody();
+        });
+
+        // Сброс игрока
+        this.player.setPosition(60, 420);
+        this.player.setVelocity(0, 0);
+        this.gravityFlipped = false;
+        this.physics.world.gravity.y = 600;
+        this.player.setFlipY(false);
+
+        // Сброс врага
+        this.enemy.setPosition(500, 420);
+        this.enemy.setVelocity(120, 0);
+        this.enemyChasing = false;
+        this.enemy.clearTint();
+
+        // Сброс счёта и жизней
+        this.score = 0;
+        this.lives = 3;
+        this.scoreText.setText('Монеты: 0');
+        this.livesText.setText('❤️ x3');
+
+        // Возобновляем физику
+        this.physics.resume();
+         });
+    }
     }); 
 
   // Столкновение с врагом
@@ -205,9 +251,9 @@ function create() {
     this.player.setVelocityX(this.player.x < this.enemy.x ? -300 : 300);
     this.player.setVelocityY(this.gravityFlipped ? 300 : -300);
     if (this.lives <= 0) {
-      this.add.text(220, 160, 'GAME OVER', {
+        this.add.text(400, 250, 'GAME OVER', {
         fontSize: '48px', fill: '#ff0000'
-      });
+    }).setOrigin(0.5);
       this.physics.pause();
     }
   });
@@ -277,6 +323,7 @@ function update() {
   if (!this.player) return;
   const onGround = this.player.body.blocked.down || this.player.body.blocked.up;
 
+  // Движение игрока
   if (this.keyS.isDown) {
     this.player.setVelocityX(-220);
     this.player.setFlipX(true);
@@ -287,6 +334,7 @@ function update() {
     this.player.setVelocityX(0);
   }
 
+  // Прыжок
   if (this.keyE.isDown && onGround && !this.gravityFlipped) {
     this.player.setVelocityY(-450);
     this.playSound(200, 400, 0.15);
@@ -296,10 +344,88 @@ function update() {
     this.playSound(200, 400, 0.15);
   }
 
+  // Инверсия гравитации
   if (Phaser.Input.Keyboard.JustDown(this.shiftKey)) {
     this.gravityFlipped = !this.gravityFlipped;
     this.physics.world.gravity.y = this.gravityFlipped ? -600 : 600;
     this.player.setFlipY(this.gravityFlipped);
     this.playSound(400, 100, 0.25, 'sawtooth');
   }
+
+  // ИИ врага
+  if (this.enemy && this.enemy.active) {
+    const dist = Phaser.Math.Distance.Between(
+      this.player.x, this.player.y,
+      this.enemy.x, this.enemy.y
+    );
+
+    if (dist < 200) {
+      // Режим преследования
+      if (!this.enemyChasing) {
+        this.enemyChasing = true;
+        this.enemy.setTint(0xff0000);
+        this.playSound(300, 600, 0.2, 'sawtooth');
+      }
+
+    const chaseSpeed = 180;
+      const diffX = this.player.x - this.enemy.x;
+
+      // Меняем направление только если разница больше 10px
+      if (Math.abs(diffX) > 10) {
+        if (diffX < 0) {
+          this.enemy.setVelocityX(-chaseSpeed);
+          this.enemy.setFlipX(true);
+        } else {
+          this.enemy.setVelocityX(chaseSpeed);
+          this.enemy.setFlipX(false);
+        }
+      } else {
+        // Враг достиг игрока — останавливается
+        this.enemy.setVelocityX(0);
+      }
+
+      // Прыжок если стена впереди
+      if ((this.enemy.body.blocked.right || this.enemy.body.blocked.left)
+           && this.enemy.body.blocked.down) {
+        this.enemy.setVelocityY(-400);
+      }
+
+      // Прыжок если стена впереди
+      if ((this.enemy.body.blocked.right || this.enemy.body.blocked.left)
+           && this.enemy.body.blocked.down) {
+        this.enemy.setVelocityY(-400);
+      }
+
+    } else {
+      // Режим патруля
+      if (this.enemyChasing) {
+        this.enemyChasing = false;
+        this.enemy.clearTint();
+      }
+
+     // Разворот у стены
+      if (this.enemy.body.blocked.right) {
+        this.enemyDirection = -1;
+      } else if (this.enemy.body.blocked.left) {
+        this.enemyDirection = 1;
+      }
+
+      this.enemy.setVelocityX(120 * this.enemyDirection);
+      this.enemy.setFlipX(this.enemyDirection < 0);
+    }
+
+    // Индикатор опасности
+    if (!this.dangerText) {
+      this.dangerText = this.add.text(0, 0, '', {
+        fontSize: '12px', fill: '#ff0000'
+      });
+    }
+    if (dist < 200) {
+      this.dangerText.setText('❗');
+      this.dangerText.setPosition(this.enemy.x - 6, this.enemy.y - 30);
+    } else {
+      this.dangerText.setText('');
+    }
+  }
+
 }
