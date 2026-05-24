@@ -8,6 +8,7 @@ const ENEMY_PATROL_SPEED = 120;
 const ENEMY_CHASE_SPEED = 180;
 const ENEMY_CHASE_DIST = 200;
 const TOTAL_COINS = 6;
+const PLAYER_HEAD_BOUNCE = 0.4;
 
 // ===== ДАННЫЕ УРОВНЯ =====
 const LEVEL_1 = {
@@ -261,11 +262,57 @@ this.player = this.physics.add.sprite(LEVEL_1.playerStart.x, LEVEL_1.playerStart
     this.playSound(100, 50, 0.3, 'sawtooth');
     this.player.setVelocityX(this.player.x < this.enemy.x ? -GRAVITY : GRAVITY);
     this.player.setVelocityY(this.gravityFlipped ? GRAVITY : -GRAVITY);
-    if (this.lives <= 0) {
-        this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2, 'GAME OVER', {
-        fontSize: '48px', fill: '#ff0000'
-    }).setOrigin(0.5);
+  if (this.lives <= 0) {
       this.physics.pause();
+
+      const gameOverObjects = [];
+
+      const goOverlay = this.add.graphics();
+      goOverlay.fillStyle(0x000000, 0.7);
+      goOverlay.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+      gameOverObjects.push(goOverlay);
+
+      gameOverObjects.push(this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 - 60, 'GAME OVER', {
+        fontSize: '48px', fill: '#ff0000'
+      }).setOrigin(0.5));
+
+      gameOverObjects.push(this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 + 20, 'Нажми ПРОБЕЛ чтобы начать заново', {
+        fontSize: '18px', fill: '#ffffff'
+      }).setOrigin(0.5));
+
+      this.playSound(150, 50, 0.5, 'sawtooth');
+
+      this.input.keyboard.once('keydown-SPACE', () => {
+        // Удаляем экран Game Over
+        gameOverObjects.forEach(obj => obj.destroy());
+
+        // Сброс монет
+        coinPositions.forEach(([x, y]) => {
+          this.coins.create(x, y, 'coin').refreshBody();
+        });
+
+        // Сброс игрока
+        this.player.setPosition(LEVEL_1.playerStart.x, LEVEL_1.playerStart.y);
+        this.player.setVelocity(0, 0);
+        this.gravityFlipped = false;
+        this.physics.world.gravity.y = GRAVITY;
+        this.player.setFlipY(false);
+        this.isJumping = false;
+
+        // Сброс врага
+        this.enemy.setPosition(LEVEL_1.enemyStart.x, LEVEL_1.enemyStart.y);
+        this.enemy.setVelocity(ENEMY_PATROL_SPEED, 0);
+        this.enemyChasing = false;
+        this.enemy.clearTint();
+
+        // Сброс счёта и жизней
+        this.score = 0;
+        this.lives = 3;
+        this.scoreText.setText('Монеты: 0');
+        this.livesText.setText('❤️ x3');
+
+        this.physics.resume();
+      });
     }
   });
 
@@ -345,16 +392,37 @@ function update() {
     this.player.setVelocityX(0);
   }
 
-  // Прыжок
-  if (this.keyE.isDown && onGround && !this.gravityFlipped) {
-    this.player.setVelocityY(-PLAYER_JUMP);
-    this.playSound(200, 400, 0.15);
-  }
-  if (this.keyX.isDown && onGround && this.gravityFlipped) {
-   this.player.setVelocityY(PLAYER_JUMP);
-    this.playSound(200, 400, 0.15);
-  }
+    // Прыжок
+    // Сбрасываем флаг прыжка когда приземлились
+    if (onGround) {
+        this.isJumping = false;
+    }
+    // Удар головой о потолок — импульс вниз
+    if (this.player.body.blocked.up && this.player.body.velocity.y < 0) {
+        this.player.setVelocityY(this.player.body.velocity.y * -PLAYER_HEAD_BOUNCE);
+        this.playSound(180, 80, 0.08, 'square');
+    }
 
+    // Удар головой при инвертированной гравитации — импульс вверх
+    if (this.player.body.blocked.down && this.player.body.velocity.y > 0 && this.gravityFlipped) {
+        this.player.setVelocityY(this.player.body.velocity.y * -PLAYER_HEAD_BOUNCE);
+        this.playSound(180, 80, 0.08, 'square');
+    }
+
+    // Прыжок вверх — только одно нажатие, только с земли
+    if (Phaser.Input.Keyboard.JustDown(this.keyE) && onGround && !this.gravityFlipped && !this.isJumping) {
+        this.player.setVelocityY(-PLAYER_JUMP);
+        this.isJumping = true;
+        this.playSound(200, 400, 0.15);
+    }
+
+    // Прыжок вниз при инвертированной гравитации
+    if (Phaser.Input.Keyboard.JustDown(this.keyX) && onGround && this.gravityFlipped && !this.isJumping) {
+        this.player.setVelocityY(PLAYER_JUMP);
+        this.isJumping = true;
+        this.playSound(200, 400, 0.15);
+    }
+    
   // Инверсия гравитации
   if (Phaser.Input.Keyboard.JustDown(this.shiftKey)) {
     this.gravityFlipped = !this.gravityFlipped;
