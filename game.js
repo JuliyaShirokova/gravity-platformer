@@ -8,6 +8,7 @@ import Enemy from './src/entities/Enemy.js';
 import CoinManager from './src/entities/CoinManager.js';
 import { initAudio, initMusic, WIN_NOTES } from './src/systems/AudioSystem.js';
 import createTextures from './src/systems/TextureManager.js';
+import CollisionManager from './src/systems/CollisionManager.js';
 
 const LEVEL_1 = LEVELS[0];
 
@@ -83,6 +84,25 @@ function create() {
   this.score++;
   this.scoreText.setText('Монеты: ' + this.score);
   this.playSound(500, 900, 0.1);
+  //взаимодействие с врагом
+  this.collisionManager = new CollisionManager(this, this.player, this.enemy);
+  this.collisionManager.initEnemyCollision(() => {
+  
+    this.lives--;
+    this.livesText.setText('❤️ x' + this.lives);
+    this.playSound(100, 50, 0.3, 'sawtooth');
+    
+    // Логика отскока
+    this.player.sprite.setVelocityX(this.player.x < this.enemy.x ? -200 : 200);
+    this.player.sprite.setVelocityY(this.player.gravityFlipped ? 300 : -300);
+
+    if (this.lives <= 0) {
+      // Вызов функции Game Over
+      handleGameOver.call(this);
+    }
+  });
+
+
 
    if (this.coinManager.count === 0) {
       this.physics.pause();
@@ -165,7 +185,7 @@ function create() {
       this.input.keyboard.once('keydown-SPACE', () => {
         gameOverObjects.forEach(obj => obj.destroy());
 
-        coinPositions.forEach(([x, y]) => {
+        this.coinPositions.forEach(([x, y]) => {
           this.coins.create(x, y, 'coin').refreshBody();
         });
 
@@ -193,4 +213,49 @@ function update() {
 
   this.player.update();
   this.enemy.update(this.player.x, this.player.y);
+}
+
+// Game OVER
+function handleGameOver() {
+  this.physics.pause();
+
+  const gameOverObjects = [];
+
+  // Затемнение фона
+  const goOverlay = this.add.graphics();
+  goOverlay.fillStyle(0x000000, 0.7);
+  goOverlay.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+  gameOverObjects.push(goOverlay);
+
+  // Текст Game Over
+  gameOverObjects.push(this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 60, 'GAME OVER', {
+    fontSize: '48px', fill: '#ff0000'
+  }).setOrigin(0.5));
+
+  // Подсказка для перезапуска
+  gameOverObjects.push(this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20, 'Нажми ПРОБЕЛ чтобы начать заново', {
+    fontSize: '18px', fill: '#ffffff'
+  }).setOrigin(0.5));
+
+  this.playSound(150, 50, 0.5, 'sawtooth');
+
+  // Логика перезапуска по нажатию пробела
+  this.input.keyboard.once('keydown-SPACE', () => {
+    gameOverObjects.forEach(obj => obj.destroy());
+
+    // Используем методы наших менеджеров для сброса состояния
+    // Предполагается, что эти переменные у тебя доступны в контексте сцены
+    this.coinPositions = LEVELS[0].coins; 
+    this.coinManager.reset(this.coinPositions);
+    
+    this.player.reset(LEVEL_1.playerStart.x, LEVEL_1.playerStart.y);
+    this.enemy.reset(LEVEL_1.enemyStart.x, LEVEL_1.enemyStart.y);
+
+    this.score = 0;
+    this.lives = 3;
+    this.scoreText.setText('Монеты: 0');
+    this.livesText.setText('❤️ x3');
+
+    this.physics.resume();
+  });
 }
