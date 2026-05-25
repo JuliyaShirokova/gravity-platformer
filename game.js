@@ -5,6 +5,8 @@ import {
 import { LEVELS } from './src/data/levels.js';
 import Player from './src/entities/Player.js';
 import Enemy from './src/entities/Enemy.js';
+import { initAudio, initMusic, WIN_NOTES } from './src/systems/AudioSystem.js';
+import createTextures from './src/systems/TextureManager.js';
 
 const LEVEL_1 = LEVELS[0];
 
@@ -39,87 +41,12 @@ function create() {
     bg.fillRect(x, y, size, size);
   }
 
-  // Текстура платформы
-  if (this.textures.exists('tile')) this.textures.remove('tile');
-  const tg = this.make.graphics({ x: 0, y: 0, add: false });
-  tg.fillStyle(0x8B4513);
-  tg.fillRect(0, 0, 32, 16);
-  tg.fillStyle(0x228B22);
-  tg.fillRect(0, 0, 32, 5);
-  tg.fillStyle(0x33aa33);
-  tg.fillRect(2, 1, 4, 3);
-  tg.fillRect(10, 0, 3, 4);
-  tg.fillRect(20, 1, 5, 3);
-  tg.fillStyle(0x000000);
-  tg.fillRect(0, 5, 32, 1);
-  tg.generateTexture('tile', 32, 16);
-  tg.destroy();
-
-  // Текстура игрока
-  if (this.textures.exists('player')) this.textures.remove('player');
-  const pg = this.make.graphics({ x: 0, y: 0, add: false });
-  const playerPixels = [
-    [0,0,1,1,1,1,0,0],
-    [0,1,1,1,1,1,1,0],
-    [0,2,2,3,3,2,2,0],
-    [0,2,3,3,3,3,2,0],
-    [0,0,3,3,3,3,0,0],
-    [0,4,4,4,4,4,4,0],
-    [4,4,4,4,4,4,4,4],
-    [4,4,4,4,4,4,4,4],
-    [0,4,4,0,0,4,4,0],
-    [0,5,5,0,0,5,5,0],
-    [0,5,5,0,0,5,5,0],
-    [0,6,6,0,0,6,6,0],
-  ];
-  const pColors = [0, 0xff0000, 0xffcc99, 0x000000, 0x0044ff, 0x8B4513, 0x8B6914];
-  playerPixels.forEach((row, y) => {
-    row.forEach((val, x) => {
-      if (val > 0) {
-        pg.fillStyle(pColors[val]);
-        pg.fillRect(x * 2, y * 2, 2, 2);
-      }
-    });
-  });
-  pg.generateTexture('player', 16, 24);
-  pg.destroy();
-
-  // Текстура врага — слайм
-  if (this.textures.exists('enemy')) this.textures.remove('enemy');
-  const eg = this.make.graphics({ x: 0, y: 0, add: false });
-  const enemyPixels = [
-    [0,0,0,1,1,1,1,0],
-    [0,0,1,1,1,1,1,1],
-    [0,1,1,2,1,1,2,1],
-    [0,1,1,1,1,1,1,1],
-    [1,1,1,1,1,1,1,1],
-    [1,1,1,1,1,1,1,1],
-    [0,1,3,1,1,3,1,0],
-    [0,0,1,1,1,1,0,0],
-  ];
-  const eColors = [0, 0xff3333, 0xffffff, 0x000000];
-  enemyPixels.forEach((row, y) => {
-    row.forEach((val, x) => {
-      if (val > 0) {
-        eg.fillStyle(eColors[val]);
-        eg.fillRect(x * 2, y * 2, 2, 2);
-      }
-    });
-  });
-  eg.generateTexture('enemy', 16, 16);
-  eg.destroy();
-
-  // Текстура монеты
-  if (this.textures.exists('coin')) this.textures.remove('coin');
-  const cg = this.make.graphics({ x: 0, y: 0, add: false });
-  cg.fillStyle(0xffdd00);
-  cg.fillCircle(6, 6, 6);
-  cg.fillStyle(0xffaa00);
-  cg.fillCircle(6, 6, 4);
-  cg.fillStyle(0xffff88);
-  cg.fillRect(4, 3, 2, 2);
-  cg.generateTexture('coin', 12, 12);
-  cg.destroy();
+  // Текстуры
+  createTextures(this);
+ 
+  // Звук и музыка
+  initAudio(this);
+  initMusic(this);
 
   // Платформы
   const platforms = this.physics.add.staticGroup();
@@ -183,13 +110,12 @@ function create() {
         fontSize: '16px', fill: '#aaaaaa'
       }).setOrigin(0.5));
 
-      const winNotes = [262, 330, 392, 523, 392, 523, 659];
-      let i = 0;
-      this.time.addEvent({
+     let i = 0;
+     this.time.addEvent({
         delay: 150,
-        repeat: winNotes.length - 1,
+        repeat: WIN_NOTES.length - 1,
         callback: () => {
-          this.playSound(winNotes[i], winNotes[i], 0.15);
+          this.playSound(WIN_NOTES[i], WIN_NOTES[i], 0.15);
           i++;
         }
       });
@@ -262,57 +188,10 @@ function create() {
     }
   });
 
-  // Звуки
-  this.playSound = function(freq1, freq2, duration, type = 'square') {
-    if (!this.audioCtx) return;
-    const ctx = this.audioCtx;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq1, ctx.currentTime);
-    osc.frequency.linearRampToValueAtTime(freq2, ctx.currentTime + duration);
-    gain.gain.setValueAtTime(0.3, ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + duration);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + duration);
-  }.bind(this);
-
   // Подсказка
   this.add.text(10, 478, 'S D движение  |  E прыжок вверх  |  X прыжок вниз  |  SHIFT гравитация', {
     fontSize: '10px', fill: '#aaaaaa'
   }).setScrollFactor(0);
-
-  // Музыка после первого нажатия
-  const notes = [329,329,0,329,0,262,329,0,392,0,0,0,196,0,0,0];
-  let noteIndex = 0;
-  const noteTime = (60 / 140) * 0.5;
-
-  this.input.keyboard.once('keydown', () => {
-    this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    this.time.addEvent({
-      delay: noteTime * 1000,
-      loop: true,
-      callback: () => {
-        const freq = notes[noteIndex % notes.length];
-        if (freq > 0) {
-          const ctx = this.audioCtx;
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.type = 'square';
-          osc.frequency.value = freq;
-          gain.gain.setValueAtTime(0.08, ctx.currentTime);
-          gain.gain.linearRampToValueAtTime(0, ctx.currentTime + noteTime * 0.8);
-          osc.start(ctx.currentTime);
-          osc.stop(ctx.currentTime + noteTime);
-        }
-        noteIndex++;
-      }
-    });
-  });
 }
 
 function update() {
