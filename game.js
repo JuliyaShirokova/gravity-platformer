@@ -1,10 +1,10 @@
 import Phaser from 'phaser';
 import {
-  GAME_WIDTH, GAME_HEIGHT, GRAVITY,
-  ENEMY_PATROL_SPEED, ENEMY_CHASE_SPEED, ENEMY_CHASE_DIST
+  GAME_WIDTH, GAME_HEIGHT, GRAVITY
 } from './src/data/constants.js';
 import { LEVELS } from './src/data/levels.js';
 import Player from './src/entities/Player.js';
+import Enemy from './src/entities/Enemy.js';
 
 const LEVEL_1 = LEVELS[0];
 
@@ -139,12 +139,8 @@ function create() {
   this.physics.add.collider(this.player.sprite, platforms);
 
   // Враг
-  this.enemy = this.physics.add.sprite(LEVEL_1.enemyStart.x, LEVEL_1.enemyStart.y, 'enemy');
-  this.enemy.setCollideWorldBounds(true);
-  this.enemy.setVelocityX(ENEMY_PATROL_SPEED);
-  this.enemyDirection = 1;
-  this.enemyChasing = false;
-  this.physics.add.collider(this.enemy, platforms);
+  this.enemy = new Enemy(this, LEVEL_1.enemyStart.x, LEVEL_1.enemyStart.y);
+  this.enemy.addCollider(platforms);
 
   // Жизни
   this.lives = 3;
@@ -205,16 +201,9 @@ function create() {
           this.coins.create(x, y, 'coin').refreshBody();
         });
 
-        // Сброс игрока
         this.player.reset(LEVEL_1.playerStart.x, LEVEL_1.playerStart.y);
+        this.enemy.reset(LEVEL_1.enemyStart.x, LEVEL_1.enemyStart.y);
 
-        // Сброс врага
-        this.enemy.setPosition(LEVEL_1.enemyStart.x, LEVEL_1.enemyStart.y);
-        this.enemy.setVelocity(ENEMY_PATROL_SPEED, 0);
-        this.enemyChasing = false;
-        this.enemy.clearTint();
-
-        // Сброс счёта и жизней
         this.score = 0;
         this.lives = 3;
         this.scoreText.setText('Монеты: 0');
@@ -226,7 +215,7 @@ function create() {
   });
 
   // Столкновение с врагом
-  this.physics.add.overlap(this.player.sprite, this.enemy, () => {
+  this.physics.add.overlap(this.player.sprite, this.enemy.sprite, () => {
     this.lives--;
     this.livesText.setText('❤️ x' + this.lives);
     this.playSound(100, 50, 0.3, 'sawtooth');
@@ -260,16 +249,9 @@ function create() {
           this.coins.create(x, y, 'coin').refreshBody();
         });
 
-        // Сброс игрока
         this.player.reset(LEVEL_1.playerStart.x, LEVEL_1.playerStart.y);
+        this.enemy.reset(LEVEL_1.enemyStart.x, LEVEL_1.enemyStart.y);
 
-        // Сброс врага
-        this.enemy.setPosition(LEVEL_1.enemyStart.x, LEVEL_1.enemyStart.y);
-        this.enemy.setVelocity(ENEMY_PATROL_SPEED, 0);
-        this.enemyChasing = false;
-        this.enemy.clearTint();
-
-        // Сброс счёта и жизней
         this.score = 0;
         this.lives = 3;
         this.scoreText.setText('Монеты: 0');
@@ -336,67 +318,6 @@ function create() {
 function update() {
   if (!this.player) return;
 
-  // Логика игрока
   this.player.update();
-
-  // ИИ врага
-  if (this.enemy && this.enemy.active) {
-    const dist = Phaser.Math.Distance.Between(
-      this.player.x, this.player.y,
-      this.enemy.x, this.enemy.y
-    );
-
-    if (dist < ENEMY_CHASE_DIST) {
-      if (!this.enemyChasing) {
-        this.enemyChasing = true;
-        this.enemy.setTint(0xff0000);
-        this.playSound(300, 600, 0.2, 'sawtooth');
-      }
-
-      const diffX = this.player.x - this.enemy.x;
-      if (Math.abs(diffX) > 10) {
-        if (diffX < 0) {
-          this.enemy.setVelocityX(-ENEMY_CHASE_SPEED);
-          this.enemy.setFlipX(true);
-        } else {
-          this.enemy.setVelocityX(ENEMY_CHASE_SPEED);
-          this.enemy.setFlipX(false);
-        }
-      } else {
-        this.enemy.setVelocityX(0);
-      }
-
-      if ((this.enemy.body.blocked.right || this.enemy.body.blocked.left)
-           && this.enemy.body.blocked.down) {
-        this.enemy.setVelocityY(-400);
-      }
-
-    } else {
-      if (this.enemyChasing) {
-        this.enemyChasing = false;
-        this.enemy.clearTint();
-      }
-
-      if (this.enemy.body.blocked.right || this.enemy.x >= GAME_WIDTH - 20) {
-        this.enemyDirection = -1;
-      } else if (this.enemy.body.blocked.left || this.enemy.x <= 20) {
-        this.enemyDirection = 1;
-      }
-
-      this.enemy.setVelocityX(ENEMY_PATROL_SPEED * this.enemyDirection);
-      this.enemy.setFlipX(this.enemyDirection < 0);
-    }
-
-    if (!this.dangerText) {
-      this.dangerText = this.add.text(0, 0, '', {
-        fontSize: '12px', fill: '#ff0000'
-      });
-    }
-    if (dist < ENEMY_CHASE_DIST) {
-      this.dangerText.setText('❗');
-      this.dangerText.setPosition(this.enemy.x - 6, this.enemy.y - 30);
-    } else {
-      this.dangerText.setText('');
-    }
-  }
+  this.enemy.update(this.player.x, this.player.y);
 }
