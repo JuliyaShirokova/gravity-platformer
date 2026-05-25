@@ -1,14 +1,15 @@
 import Phaser from 'phaser';
-import {
-  GAME_WIDTH, GAME_HEIGHT, GRAVITY
-} from './src/data/constants.js';
+import { GAME_WIDTH, GAME_HEIGHT, GRAVITY } from './src/data/constants.js';
 import { LEVELS } from './src/data/levels.js';
+import BackgroundManager from './src/systems/BackgroundManager.js';
 import Player from './src/entities/Player.js';
 import Enemy from './src/entities/Enemy.js';
 import CoinManager from './src/entities/CoinManager.js';
+import CollisionManager from './src/systems/CollisionManager.js';
+import CoinInteractionManager from './src/systems/CoinInteractionManager.js';
+import GameStateManager from './src/systems/GameStateManager.js'; // Новый импорт
 import { initAudio, initMusic, WIN_NOTES } from './src/systems/AudioSystem.js';
 import createTextures from './src/systems/TextureManager.js';
-import CollisionManager from './src/systems/CollisionManager.js';
 
 const LEVEL_1 = LEVELS[0];
 
@@ -29,233 +30,61 @@ const game = new Phaser.Game(config);
 function preload() {}
 
 function create() {
-
-  // Фон со звёздами
-  const bg = this.add.graphics();
-  bg.fillStyle(0x1a1a2e);
-  bg.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-  for (let i = 0; i < 100; i++) {
-    const x = Phaser.Math.Between(0, GAME_WIDTH);
-    const y = Phaser.Math.Between(0, GAME_HEIGHT);
-    const size = Phaser.Math.FloatBetween(0.5, 2);
-    const brightness = Phaser.Math.Between(150, 255);
-    bg.fillStyle(Phaser.Display.Color.GetColor(brightness, brightness, brightness));
-    bg.fillRect(x, y, size, size);
-  }
-
-  // Текстуры
+  new BackgroundManager(this, GAME_WIDTH, GAME_HEIGHT);
   createTextures(this);
- 
-  // Звук и музыка
   initAudio(this);
   initMusic(this);
 
-  // Платформы
   const platforms = this.physics.add.staticGroup();
   LEVEL_1.platforms.forEach(p => {
     platforms.create(p.x, p.y, 'tile').setDisplaySize(p.w, p.h).refreshBody();
   });
 
-  // Монеты
- this.coinManager = new CoinManager(this, LEVEL_1.coins);
-
-  // Игрок
+  this.coinManager = new CoinManager(this, LEVEL_1.coins);
   this.player = new Player(this, LEVEL_1.playerStart.x, LEVEL_1.playerStart.y);
-  this.physics.add.collider(this.player.sprite, platforms);
-
-  // Враг
   this.enemy = new Enemy(this, LEVEL_1.enemyStart.x, LEVEL_1.enemyStart.y);
+  
+  this.physics.add.collider(this.player.sprite, platforms);
   this.enemy.addCollider(platforms);
 
-  // Жизни
-  this.lives = 3;
-  this.livesText = this.add.text(740, 10, '❤️ x3', {
-    fontSize: '14px', fill: '#ff4444'
-  }).setScrollFactor(0);
-
-  // Счёт
-  this.score = 0;
-  this.scoreText = this.add.text(10, 10, 'Монеты: 0', {
-    fontSize: '14px', fill: '#ffdd00'
-  }).setScrollFactor(0);
-
-  // Сбор монет
-  this.coinManager.initOverlap(this.player, () => {
-  this.score++;
-  this.scoreText.setText('Монеты: ' + this.score);
-  this.playSound(500, 900, 0.1);
-  //взаимодействие с врагом
   this.collisionManager = new CollisionManager(this, this.player, this.enemy);
-  this.collisionManager.initEnemyCollision(() => {
   
+  // Инициализация менеджеров
+  this.gameStateManager = new GameStateManager(this, this.player, this.enemy, this.coinManager, LEVEL_1);
+  this.interactionManager = new CoinInteractionManager(this, this.coinManager, this.player, () => {
+    // Логика победы
+    this.gameStateManager.showEndScreen('УРОВЕНЬ ПРОЙДЕН!', '#ffdd00', () => {
+       // Дополнительная логика после рестарта (если нужна)
+    });
+    this.playSound(150, 50, 0.5, 'sawtooth'); // Звук победы
+  });
+
+  // Логика столкновения
+  this.collisionManager.initEnemyCollision(() => {
     this.lives--;
     this.livesText.setText('❤️ x' + this.lives);
     this.playSound(100, 50, 0.3, 'sawtooth');
-    
-    // Логика отскока
     this.player.sprite.setVelocityX(this.player.x < this.enemy.x ? -200 : 200);
     this.player.sprite.setVelocityY(this.player.gravityFlipped ? 300 : -300);
-
+    
     if (this.lives <= 0) {
-      // Вызов функции Game Over
-      handleGameOver.call(this);
+      this.gameStateManager.showEndScreen('GAME OVER', '#ff0000');
     }
   });
 
-
-
-   if (this.coinManager.count === 0) {
-      this.physics.pause();
-
-      const winScreenObjects = [];
-
-      const overlay = this.add.graphics();
-      overlay.fillStyle(0x000000, 0.6);
-      overlay.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-      winScreenObjects.push(overlay);
-
-      winScreenObjects.push(this.add.text(GAME_WIDTH/2, 180, '🎉 УРОВЕНЬ ПРОЙДЕН!', {
-        fontSize: '36px', fill: '#ffdd00'
-      }).setOrigin(0.5));
-
-      winScreenObjects.push(this.add.text(GAME_WIDTH/2, 250, 'Монеты: ' + this.score + ' / 6', {
-        fontSize: '22px', fill: '#ffffff'
-      }).setOrigin(0.5));
-
-      winScreenObjects.push(this.add.text(GAME_WIDTH/2, 310, 'Нажми ПРОБЕЛ для продолжения', {
-        fontSize: '16px', fill: '#aaaaaa'
-      }).setOrigin(0.5));
-
-     let i = 0;
-     this.time.addEvent({
-        delay: 150,
-        repeat: WIN_NOTES.length - 1,
-        callback: () => {
-          this.playSound(WIN_NOTES[i], WIN_NOTES[i], 0.15);
-          i++;
-        }
-      });
-
-      this.input.keyboard.once('keydown-SPACE', () => {
-        winScreenObjects.forEach(obj => obj.destroy());
-
-        this.coinManager.reset(LEVEL_1.coins);
-
-        this.player.reset(LEVEL_1.playerStart.x, LEVEL_1.playerStart.y);
-        this.enemy.reset(LEVEL_1.enemyStart.x, LEVEL_1.enemyStart.y);
-
-        this.score = 0;
-        this.lives = 3;
-        this.scoreText.setText('Монеты: 0');
-        this.livesText.setText('❤️ x3');
-
-        this.physics.resume();
-      });
-    }
+  this.coinManager.initOverlap(this.player, (coin) => {
+    this.interactionManager.handleCollection(coin);
   });
 
-  // Столкновение с врагом
-  this.physics.add.overlap(this.player.sprite, this.enemy.sprite, () => {
-    this.lives--;
-    this.livesText.setText('❤️ x' + this.lives);
-    this.playSound(100, 50, 0.3, 'sawtooth');
-    this.player.sprite.setVelocityX(this.player.x < this.enemy.x ? -GRAVITY : GRAVITY);
-    this.player.sprite.setVelocityY(this.player.gravityFlipped ? GRAVITY : -GRAVITY);
-
-    if (this.lives <= 0) {
-      this.physics.pause();
-
-      const gameOverObjects = [];
-
-      const goOverlay = this.add.graphics();
-      goOverlay.fillStyle(0x000000, 0.7);
-      goOverlay.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-      gameOverObjects.push(goOverlay);
-
-      gameOverObjects.push(this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 - 60, 'GAME OVER', {
-        fontSize: '48px', fill: '#ff0000'
-      }).setOrigin(0.5));
-
-      gameOverObjects.push(this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 + 20, 'Нажми ПРОБЕЛ чтобы начать заново', {
-        fontSize: '18px', fill: '#ffffff'
-      }).setOrigin(0.5));
-
-      this.playSound(150, 50, 0.5, 'sawtooth');
-
-      this.input.keyboard.once('keydown-SPACE', () => {
-        gameOverObjects.forEach(obj => obj.destroy());
-
-        this.coinPositions.forEach(([x, y]) => {
-          this.coins.create(x, y, 'coin').refreshBody();
-        });
-
-        this.player.reset(LEVEL_1.playerStart.x, LEVEL_1.playerStart.y);
-        this.enemy.reset(LEVEL_1.enemyStart.x, LEVEL_1.enemyStart.y);
-
-        this.score = 0;
-        this.lives = 3;
-        this.scoreText.setText('Монеты: 0');
-        this.livesText.setText('❤️ x3');
-
-        this.physics.resume();
-      });
-    }
-  });
-
-  // Подсказка
-  this.add.text(10, 478, 'S D движение  |  E прыжок вверх  |  X прыжок вниз  |  SHIFT гравитация', {
-    fontSize: '10px', fill: '#aaaaaa'
-  }).setScrollFactor(0);
+  // UI
+  this.lives = 3;
+  this.livesText = this.add.text(740, 10, '❤️ x3', { fontSize: '14px', fill: '#ff4444' }).setScrollFactor(0);
+  this.score = 0;
+  this.scoreText = this.add.text(10, 10, 'Монеты: 0', { fontSize: '14px', fill: '#ffdd00' }).setScrollFactor(0);
 }
 
 function update() {
   if (!this.player) return;
-
   this.player.update();
   this.enemy.update(this.player.x, this.player.y);
-}
-
-// Game OVER
-function handleGameOver() {
-  this.physics.pause();
-
-  const gameOverObjects = [];
-
-  // Затемнение фона
-  const goOverlay = this.add.graphics();
-  goOverlay.fillStyle(0x000000, 0.7);
-  goOverlay.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-  gameOverObjects.push(goOverlay);
-
-  // Текст Game Over
-  gameOverObjects.push(this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 60, 'GAME OVER', {
-    fontSize: '48px', fill: '#ff0000'
-  }).setOrigin(0.5));
-
-  // Подсказка для перезапуска
-  gameOverObjects.push(this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20, 'Нажми ПРОБЕЛ чтобы начать заново', {
-    fontSize: '18px', fill: '#ffffff'
-  }).setOrigin(0.5));
-
-  this.playSound(150, 50, 0.5, 'sawtooth');
-
-  // Логика перезапуска по нажатию пробела
-  this.input.keyboard.once('keydown-SPACE', () => {
-    gameOverObjects.forEach(obj => obj.destroy());
-
-    // Используем методы наших менеджеров для сброса состояния
-    // Предполагается, что эти переменные у тебя доступны в контексте сцены
-    this.coinPositions = LEVELS[0].coins; 
-    this.coinManager.reset(this.coinPositions);
-    
-    this.player.reset(LEVEL_1.playerStart.x, LEVEL_1.playerStart.y);
-    this.enemy.reset(LEVEL_1.enemyStart.x, LEVEL_1.enemyStart.y);
-
-    this.score = 0;
-    this.lives = 3;
-    this.scoreText.setText('Монеты: 0');
-    this.livesText.setText('❤️ x3');
-
-    this.physics.resume();
-  });
 }

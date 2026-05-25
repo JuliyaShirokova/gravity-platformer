@@ -13,10 +13,10 @@ export default class CoinManager {
 
   // Метод для инициализации столкновения с игроком
   initOverlap(player, onCoinCollect) {
-    this.scene.physics.add.overlap(player.sprite, this.coins, (playerSprite, coin) => {
+   this.scene.physics.add.overlap(player.sprite, this.coins, (playerSprite, coin) => {
       coin.destroy();
       // Вызываем колбэк (функцию), переданную из основного файла, если нужно что-то сделать при сборе
-      if (onCoinCollect) onCoinCollect();
+     if (onCoinCollect) onCoinCollect(coin);
     });
   }
 
