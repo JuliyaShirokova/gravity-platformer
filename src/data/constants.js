@@ -1,0 +1,10 @@
+export const GAME_WIDTH = 800;
+export const GAME_HEIGHT = 500;
+export const PLAYER_SPEED = 220;
+export const PLAYER_JUMP = 450;
+export const GRAVITY = 600;
+export const PLAYER_HEAD_BOUNCE = 0.4;
+export const ENEMY_PATROL_SPEED = 120;
+export const ENEMY_CHASE_SPEED = 180;
+export const ENEMY_CHASE_DIST = 200;
+export const TOTAL_COINS = 6;
