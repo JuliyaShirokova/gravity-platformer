@@ -1,33 +1,13 @@
-// ===== КОНСТАНТЫ =====
-const GAME_WIDTH = 800;
-const GAME_HEIGHT = 500;
-const PLAYER_SPEED = 220;
-const PLAYER_JUMP = 450;
-const GRAVITY = 600;
-const ENEMY_PATROL_SPEED = 120;
-const ENEMY_CHASE_SPEED = 180;
-const ENEMY_CHASE_DIST = 200;
-const TOTAL_COINS = 6;
-const PLAYER_HEAD_BOUNCE = 0.4;
+import Phaser from 'phaser';
+import {
+  GAME_WIDTH, GAME_HEIGHT, GRAVITY,
+  PLAYER_SPEED, PLAYER_JUMP, PLAYER_HEAD_BOUNCE,
+  ENEMY_PATROL_SPEED, ENEMY_CHASE_SPEED, ENEMY_CHASE_DIST
+} from './src/data/constants.js';
+import { LEVELS } from './src/data/levels.js';
 
-// ===== ДАННЫЕ УРОВНЯ =====
-const LEVEL_1 = {
-  platforms: [
-    { x: 400, y: 470, w: 800, h: 20 },
-    { x: 400, y: 10,  w: 800, h: 20 },
-    { x: 150, y: 340, w: 120, h: 16 },
-    { x: 400, y: 260, w: 120, h: 16 },
-    { x: 650, y: 340, w: 120, h: 16 },
-    { x: 280, y: 160, w: 120, h: 16 },
-    { x: 560, y: 160, w: 120, h: 16 },
-  ],
-  coins: [
-    [150, 310], [400, 230], [650, 310],
-    [280, 130], [560, 130], [500, 440]
-  ],
-  playerStart: { x: 60,  y: 420 },
-  enemyStart:  { x: 500, y: 420 }
-};
+const LEVEL_1 = LEVELS[0];
+const LEVEL_2 = LEVELS[1];
 
 const config = {
   type: Phaser.AUTO,
