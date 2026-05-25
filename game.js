@@ -5,6 +5,7 @@ import {
 import { LEVELS } from './src/data/levels.js';
 import Player from './src/entities/Player.js';
 import Enemy from './src/entities/Enemy.js';
+import CoinManager from './src/entities/CoinManager.js';
 import { initAudio, initMusic, WIN_NOTES } from './src/systems/AudioSystem.js';
 import createTextures from './src/systems/TextureManager.js';
 
@@ -55,11 +56,7 @@ function create() {
   });
 
   // Монеты
-  this.coins = this.physics.add.staticGroup();
-  const coinPositions = LEVEL_1.coins;
-  coinPositions.forEach(([x, y]) => {
-    this.coins.create(x, y, 'coin').refreshBody();
-  });
+ this.coinManager = new CoinManager(this, LEVEL_1.coins);
 
   // Игрок
   this.player = new Player(this, LEVEL_1.playerStart.x, LEVEL_1.playerStart.y);
@@ -82,13 +79,12 @@ function create() {
   }).setScrollFactor(0);
 
   // Сбор монет
-  this.physics.add.overlap(this.player.sprite, this.coins, (playerSprite, coin) => {
-    coin.destroy();
-    this.score++;
-    this.scoreText.setText('Монеты: ' + this.score);
-    this.playSound(500, 900, 0.1);
+  this.coinManager.initOverlap(this.player, () => {
+  this.score++;
+  this.scoreText.setText('Монеты: ' + this.score);
+  this.playSound(500, 900, 0.1);
 
-    if (this.coins.countActive() === 0) {
+   if (this.coinManager.count === 0) {
       this.physics.pause();
 
       const winScreenObjects = [];
@@ -123,9 +119,7 @@ function create() {
       this.input.keyboard.once('keydown-SPACE', () => {
         winScreenObjects.forEach(obj => obj.destroy());
 
-        coinPositions.forEach(([x, y]) => {
-          this.coins.create(x, y, 'coin').refreshBody();
-        });
+        this.coinManager.reset(LEVEL_1.coins);
 
         this.player.reset(LEVEL_1.playerStart.x, LEVEL_1.playerStart.y);
         this.enemy.reset(LEVEL_1.enemyStart.x, LEVEL_1.enemyStart.y);
