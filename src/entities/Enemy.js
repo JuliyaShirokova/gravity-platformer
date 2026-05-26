@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import {
   ENEMY_PATROL_SPEED,
   ENEMY_CHASE_SPEED,
@@ -22,6 +22,12 @@ export default class Enemy {
   }
 
   update(playerX, playerY) {
+    // ЗАЩИТА: Если спрайт или его физическое тело еще не готовы, 
+    // пропускаем этот кадр, чтобы избежать ошибок при перезагрузке сцены.
+    if (!this.sprite || !this.sprite.body) {
+      return;
+    }
+
     const dist = Phaser.Math.Distance.Between(
       playerX, playerY,
       this.sprite.x, this.sprite.y

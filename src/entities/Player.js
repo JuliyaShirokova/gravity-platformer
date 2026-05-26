@@ -1,4 +1,4 @@
- import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import {
   PLAYER_SPEED, PLAYER_JUMP,
   PLAYER_HEAD_BOUNCE, GRAVITY
@@ -25,6 +25,12 @@ export default class Player {
   }
 
   update() {
+    // ЗАЩИТА: Если спрайт или его физическое тело еще не инициализированы 
+    // (например, при перезагрузке сцены), просто выходим из метода.
+    if (!this.sprite || !this.sprite.body) {
+      return;
+    }
+
     const body = this.sprite.body;
     const onGround = body.blocked.down || body.blocked.up;
 

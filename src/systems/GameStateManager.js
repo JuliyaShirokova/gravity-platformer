@@ -1,49 +1,50 @@
-// src/systems/GameStateManager.js
+import { GAME_WIDTH, GAME_HEIGHT } from '../data/constants.js';
+
 export default class GameStateManager {
-  constructor(scene, player, enemy, coinManager, levelConfig) {
-    this.scene = scene;
-    this.player = player;
-    this.enemy = enemy;
-    this.coinManager = coinManager;
-    this.levelConfig = levelConfig;
-  }
+    constructor(scene, player, enemy, coinManager, levelData) {
+        this.scene = scene;
+        this.player = player;
+        this.enemy = enemy;
+        this.coinManager = coinManager;
+        this.levelData = levelData;
+    }
 
-  showEndScreen(title, color, onRestartCallback) {
-    this.scene.physics.pause();
-    const screenObjects = [];
+    /**
+     * Отображает экран окончания уровня.
+     * @param {string} title - Статус уровня (напр. "ПОБЕДА!")
+     * @param {string} color - Цвет текста статуса (напр. "#ffdd00")
+     * @param {string} levelName - Название уровня (напр. "УРОВЕНЬ 1")
+     * @param {string} promptText - Текст подсказки (по умолчанию "Продолжить путь")
+     */
+    showEndScreen(title, color, levelName, promptText = 'Продолжить путь') {
+        // 1. Создаем темный полупрозрачный фон
+        // setScrollFactor(0) закрепляет элемент на экране, чтобы он не уезжал при движении камеры
+        this.scene.add.rectangle(
+            GAME_WIDTH / 2, 
+            GAME_HEIGHT / 2, 
+            GAME_WIDTH, 
+            GAME_HEIGHT, 
+            0x000000, 
+            0.8
+        ).setScrollFactor(0);
+        
+        // 2. Имя уровня (Большой заголовок сверху)
+        this.scene.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 100, levelName, { 
+            fontSize: '64px', 
+            fill: '#ffffff',
+            fontStyle: 'bold' 
+        }).setOrigin(0.5).setScrollFactor(0);
 
-    // Затемнение
-    const overlay = this.scene.add.graphics();
-    overlay.fillStyle(0x000000, 0.7);
-    overlay.fillRect(0, 0, this.scene.game.config.width, this.scene.game.config.height);
-    screenObjects.push(overlay);
+        // 3. Статус уровня (ПОБЕДА или GAME OVER)
+        this.scene.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, title, { 
+            fontSize: '48px', 
+            fill: color 
+        }).setOrigin(0.5).setScrollFactor(0);
 
-    // Заголовок
-    screenObjects.push(this.scene.add.text(400, 240, title, {
-      fontSize: '48px', fill: color
-    }).setOrigin(0.5));
-
-    // Инструкция
-    screenObjects.push(this.scene.add.text(400, 300, 'Нажми ПРОБЕЛ для продолжения', {
-      fontSize: '18px', fill: '#ffffff'
-    }).setOrigin(0.5));
-
-    this.scene.input.keyboard.once('keydown-SPACE', () => {
-      screenObjects.forEach(obj => obj.destroy());
-      this.resetGame();
-      if (onRestartCallback) onRestartCallback();
-      this.scene.physics.resume();
-    });
-  }
-
-  resetGame() {
-    this.coinManager.reset(this.levelConfig.coins);
-    this.player.reset(this.levelConfig.playerStart.x, this.levelConfig.playerStart.y);
-    this.enemy.reset(this.levelConfig.enemyStart.x, this.levelConfig.enemyStart.y);
-    
-    this.scene.score = 0;
-    this.scene.lives = 3;
-    this.scene.scoreText.setText('Монеты: 0');
-    this.scene.livesText.setText('❤️ x3');
-  }
+        // 4. Инструкция для игрока
+        this.scene.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 80, promptText, { 
+            fontSize: '24px', 
+            fill: '#cccccc' 
+        }).setOrigin(0.5).setScrollFactor(0);
+    }
 }
