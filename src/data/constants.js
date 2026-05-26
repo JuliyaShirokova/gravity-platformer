@@ -8,3 +8,4 @@ export const ENEMY_PATROL_SPEED = 120;
 export const ENEMY_CHASE_SPEED = 180;
 export const ENEMY_CHASE_DIST = 200;
 export const TOTAL_COINS = 6;
+export const PLAYER_INVULNERABILITY_TIME = 1000; 

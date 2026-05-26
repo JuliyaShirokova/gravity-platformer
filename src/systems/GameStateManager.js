@@ -47,4 +47,19 @@ export default class GameStateManager {
             fill: '#cccccc' 
         }).setOrigin(0.5).setScrollFactor(0);
     }
+
+    // Новый метод для кнопки
+    addRestartButton(callback) {
+        const btn = this.scene.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 150, "НАЧАТЬ ЗАНОВО", {
+            fontSize: '24px', 
+            fill: '#ffffff',
+            backgroundColor: '#ff4444',
+            padding: { x: 20, y: 10 }
+        })
+        .setOrigin(0.5)
+        .setScrollFactor(0)
+        .setInteractive({ useHandCursor: true });
+
+        btn.on('pointerdown', callback);
+    }
 }
