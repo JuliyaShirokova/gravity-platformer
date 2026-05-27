@@ -11,6 +11,7 @@ export default class Enemy {
     this.scene = scene;
     this.direction = 1;
     this.isChasing = false;
+    this.isFrozen = false; // Новое состояние: заморожен ли враг
 
     this.sprite = scene.physics.add.sprite(x, y, 'enemy');
     this.sprite.setCollideWorldBounds(true);
@@ -21,10 +22,28 @@ export default class Enemy {
     this.scene.physics.add.collider(this.sprite, platforms);
   }
 
+  // Метод для заморозки врага
+  freeze(duration) {
+    this.isFrozen = true;
+    this.sprite.setVelocityX(0); // Останавливаем движение
+    this.sprite.setTint(0x00ffff); // Синий цвет льда
+    
+    // Снимаем заморозку через указанное время
+    this.scene.time.delayedCall(duration, () => {
+      this.isFrozen = false;
+      this.sprite.clearTint();
+    });
+  }
+
   update(playerX, playerY) {
-    // ЗАЩИТА: Если спрайт или его физическое тело еще не готовы, 
-    // пропускаем этот кадр, чтобы избежать ошибок при перезагрузке сцены.
+    // ЗАЩИТА: Если спрайт или его физическое тело еще не готовы
     if (!this.sprite || !this.sprite.body) {
+      return;
+    }
+
+    // Если враг заморожен, пропускаем логику патрулирования/преследования
+    if (this.isFrozen) {
+      this.sprite.setVelocityX(0);
       return;
     }
 
@@ -87,7 +106,8 @@ export default class Enemy {
         fontSize: '12px', fill: '#ff0000'
       });
     }
-    if (dist < ENEMY_CHASE_DIST) {
+    // Индикатор отображаем, даже если враг заморожен, чтобы игрок видел опасность
+    if (!this.isFrozen && dist < ENEMY_CHASE_DIST) {
       this.dangerText.setText('❗');
       this.dangerText.setPosition(this.sprite.x - 6, this.sprite.y - 30);
     } else {
@@ -99,6 +119,7 @@ export default class Enemy {
     this.sprite.setPosition(x, y);
     this.sprite.setVelocity(ENEMY_PATROL_SPEED, 0);
     this.isChasing = false;
+    this.isFrozen = false; // Сбрасываем заморозку
     this.direction = 1;
     this.sprite.clearTint();
   }

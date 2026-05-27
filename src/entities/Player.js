@@ -12,9 +12,20 @@ export default class Player {
     this.sprite = scene.physics.add.sprite(x, y, 'player');
     this.sprite.setBounce(0).setCollideWorldBounds(true);
 
+    // ИЗМЕНЕНИЕ: Уменьшаем физическое тело (хитбокс)
+    // Ширина спрайта 16px, мы делаем физическое тело 8px
+    // setOffset(4, 0) центрирует это узкое тело (16-8)/2 = 4
+    this.sprite.body.setSize(8, 24);
+    this.sprite.body.setOffset(4, 0);
+
     // Состояние
     this.isJumping = false;
     this.gravityFlipped = false;
+
+    // Бонусные состояния
+    this.speedMultiplier = 1;
+    this.jumpMultiplier = 1;
+    this.hasIceCream = false;
 
     // Управление
     this.keyS = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
@@ -26,7 +37,6 @@ export default class Player {
 
   update() {
     // ЗАЩИТА: Если спрайт или его физическое тело еще не инициализированы 
-    // (например, при перезагрузке сцены), просто выходим из метода.
     if (!this.sprite || !this.sprite.body) {
       return;
     }
@@ -34,12 +44,12 @@ export default class Player {
     const body = this.sprite.body;
     const onGround = body.blocked.down || body.blocked.up;
 
-    // Движение
+    // Движение с учетом множителя скорости
     if (this.keyS.isDown) {
-      this.sprite.setVelocityX(-PLAYER_SPEED);
+      this.sprite.setVelocityX(-PLAYER_SPEED * this.speedMultiplier);
       this.sprite.setFlipX(true);
     } else if (this.keyD.isDown) {
-      this.sprite.setVelocityX(PLAYER_SPEED);
+      this.sprite.setVelocityX(PLAYER_SPEED * this.speedMultiplier);
       this.sprite.setFlipX(false);
     } else {
       this.sprite.setVelocityX(0);
@@ -62,16 +72,16 @@ export default class Player {
       this.scene.playSound(180, 80, 0.08, 'square');
     }
 
-    // Прыжок вверх
+    // Прыжок вверх с учетом множителя прыжка
     if (Phaser.Input.Keyboard.JustDown(this.keyE) && onGround && !this.gravityFlipped && !this.isJumping) {
-      this.sprite.setVelocityY(-PLAYER_JUMP);
+      this.sprite.setVelocityY(-PLAYER_JUMP * this.jumpMultiplier);
       this.isJumping = true;
       this.scene.playSound(200, 400, 0.15);
     }
 
-    // Прыжок вниз при инвертированной гравитации
+    // Прыжок вниз при инвертированной гравитации с учетом множителя
     if (Phaser.Input.Keyboard.JustDown(this.keyX) && onGround && this.gravityFlipped && !this.isJumping) {
-      this.sprite.setVelocityY(PLAYER_JUMP);
+      this.sprite.setVelocityY(PLAYER_JUMP * this.jumpMultiplier);
       this.isJumping = true;
       this.scene.playSound(200, 400, 0.15);
     }
@@ -93,9 +103,14 @@ export default class Player {
     this.isJumping = false;
     this.sprite.setFlipY(false);
     this.scene.physics.world.gravity.y = GRAVITY;
+    
+    // Сброс бонусов
+    this.speedMultiplier = 1;
+    this.jumpMultiplier = 1;
+    this.hasIceCream = false;
   }
 
-  // Геттер для удобного доступа к позиции
+  // Геттеры
   get x() { return this.sprite.x; }
   get y() { return this.sprite.y; }
   get body() { return this.sprite.body; }

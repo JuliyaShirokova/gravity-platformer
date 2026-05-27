@@ -5,10 +5,12 @@ import {
   GRAVITY, 
   PLAYER_INVULNERABILITY_TIME 
 } from './src/data/constants.js';
+import { GameStats } from './src/logic/GameStats.js';
 import BackgroundManager from './src/systems/BackgroundManager.js';
 import Player from './src/entities/Player.js';
 import Enemy from './src/entities/Enemy.js';
 import CoinManager from './src/entities/CoinManager.js';
+import BonusManager from './src/systems/BonusManager.js'; // Новый импорт
 import CollisionManager from './src/systems/CollisionManager.js';
 import CoinInteractionManager from './src/systems/CoinInteractionManager.js';
 import GameStateManager from './src/systems/GameStateManager.js';
@@ -16,7 +18,7 @@ import { initAudio, initMusic } from './src/systems/AudioSystem.js';
 import createTextures from './src/systems/TextureManager.js';
 import LoadingManager from './src/systems/LoadingManager.js';
 
-const levels = ['level1', 'level2', 'level3','level4', 'level5', 'level6', 'level7'];
+const levels = ['level1', 'level2', 'level3', 'level4', 'level5', 'level6'];
 let currentLevelIndex = 0;
 let currentLevel = levels[currentLevelIndex];
 
@@ -48,17 +50,15 @@ function create() {
     const levelData = this.cache.json.get('levelData');
 
     this.isInvulnerable = false;
+    
+    // Инициализация статистики
+    this.stats = new GameStats(3);
 
     // 1. Инициализация систем
     new BackgroundManager(this, GAME_WIDTH, GAME_HEIGHT);
     createTextures(this);
     initAudio(this);
     initMusic(this);
-
-    // Инициализация очков (сброс при старте игры)
-    if (this.registry.get('totalScore') === undefined) {
-        this.registry.set('totalScore', 0);
-    }
 
     // 2. Платформы
     const platforms = this.physics.add.staticGroup();
@@ -75,9 +75,22 @@ function create() {
     this.player = new Player(this, levelData.playerStart.x, levelData.playerStart.y);
     this.enemy = new Enemy(this, levelData.enemyStart.x, levelData.enemyStart.y);
     
+    // Инициализация BonusManager
+    this.bonusManager = new BonusManager(this, this.player, this.enemy);
+    
+    // Спавн бонусов из JSON уровня (если они там прописаны)
+    if (levelData.bonuses) {
+        levelData.bonuses.forEach(b => this.bonusManager.spawn(b.type, b.x, b.y));
+    }
+    
     // 4. Физика
     this.physics.add.collider(this.player.sprite, platforms);
     this.enemy.addCollider(platforms);
+
+    // Оверлап для сбора бонусов
+    this.physics.add.overlap(this.player.sprite, this.bonusManager.bonuses, (playerSprite, bonus) => {
+      this.bonusManager.handleCollection(this.player, bonus);
+    });
 
     this.collisionManager = new CollisionManager(this, this.player, this.enemy);
     this.gameStateManager = new GameStateManager(this, this.player, this.enemy, this.coinManager, levelData);
@@ -101,22 +114,27 @@ function create() {
 
     // 6. Логика столкновения с врагом
     this.collisionManager.initEnemyCollision(() => {
+      // Проверка на заморозку врага (Мороженое)
+      if (this.player.hasIceCream) {
+          this.bonusManager.tryFreezeEnemy();
+          return; 
+      }
+
       if (this.isInvulnerable) return;
 
       this.isInvulnerable = true;
-      this.lives--;
-      this.livesText.setText('❤️ x' + this.lives);
+      const remainingLives = this.stats.takeDamage();
+      this.livesText.setText('❤️ x' + remainingLives);
       this.playSound(100, 50, 0.3, 'sawtooth');
       
       this.player.sprite.setVelocityX(this.player.x < this.enemy.x ? -200 : 200);
       this.player.sprite.setVelocityY(this.player.gravityFlipped ? 300 : -300);
       
-      if (this.lives <= 0) {
+      if (this.stats.isGameOver) {
         this.gameStateManager.showEndScreen('GAME OVER', '#ff0000', `УРОВЕНЬ ${currentLevelIndex + 1}`, '');
         
-        // Кнопка перезапуска: СБРАСЫВАЕМ ТОЛЬКО ОЧКИ, уровень оставляем текущим
         this.gameStateManager.addRestartButton(() => {
-            this.registry.set('totalScore', 0); 
+            this.stats.resetScore();
             this.scene.restart();
         });
       } else {
@@ -129,15 +147,13 @@ function create() {
     // 7. Логика монет
     this.coinManager.initOverlap(this.player, (coin) => {
       this.interactionManager.handleCollection(coin);
-      let newScore = this.registry.get('totalScore') + 1;
-      this.registry.set('totalScore', newScore);
-      this.scoreText.setText('Монеты: ' + newScore);
+      this.stats.addScore(1);
+      this.scoreText.setText('Монеты: ' + this.stats.score);
     });
 
     // 8. UI
-    this.lives = 3;
-    this.livesText = this.add.text(740, 10, '❤️ x3', { fontSize: '14px', fill: '#ff4444' }).setScrollFactor(0);
-    this.scoreText = this.add.text(10, 10, 'Монеты: ' + this.registry.get('totalScore'), { 
+    this.livesText = this.add.text(740, 10, '❤️ x' + this.stats.lives, { fontSize: '14px', fill: '#ff4444' }).setScrollFactor(0);
+    this.scoreText = this.add.text(10, 10, 'Монеты: ' + this.stats.score, { 
         fontSize: '14px', 
         fill: '#ffdd00' 
     }).setScrollFactor(0);
