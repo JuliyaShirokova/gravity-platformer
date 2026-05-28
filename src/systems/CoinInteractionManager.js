@@ -12,7 +12,7 @@ export default class CoinInteractionManager {
     
     // Обновление логики (счет, звук)
     this.scene.score++;
-    this.scene.scoreText.setText('Монеты: ' + this.scene.score);
+   // this.scene.scoreText.setText('Монеты: ' + this.scene.score);
     this.scene.playSound(500, 900, 0.1);
 
     // Проверка победы

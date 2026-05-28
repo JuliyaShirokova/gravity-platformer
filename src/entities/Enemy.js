@@ -5,13 +5,14 @@ import {
   ENEMY_CHASE_DIST,
   GAME_WIDTH
 } from '../data/constants.js';
+import { playPoof } from '../systems/AudioSystem.js';
 
 export default class Enemy {
   constructor(scene, x, y) {
     this.scene = scene;
     this.direction = 1;
     this.isChasing = false;
-    this.isFrozen = false; // Новое состояние: заморожен ли враг
+    this.isFrozen = false; 
 
     this.sprite = scene.physics.add.sprite(x, y, 'enemy');
     this.sprite.setCollideWorldBounds(true);
@@ -22,13 +23,54 @@ export default class Enemy {
     this.scene.physics.add.collider(this.sprite, platforms);
   }
 
-  // Метод для заморозки врага
+  // --- Новые методы для управления жизнью врага ---
+
+  stop() {
+    this.sprite.setVelocity(0, 0);
+    this.sprite.body.enable = false; // Отключаем физику, чтобы игрок мог пройти сквозь "трупик"
+    
+    // Обязательно удаляем индикатор опасности, чтобы он не висел в воздухе
+    if (this.dangerText) {
+      this.dangerText.destroy();
+      this.dangerText = null;
+    }
+  }
+
+  die() {
+  // 1. Проигрываем наш синтезированный звук (никаких внешних файлов!)
+    playPoof(this.scene);
+    
+    // 2. Останавливаем физику и очищаем индикаторы
+    this.stop();
+
+    // 3. Создаем систему частиц (Эмиттер)
+    const emitter = this.scene.add.particles(this.sprite.x, this.sprite.y, 'enemy', {
+      speed: { min: 50, max: 150 },
+      scale: { start: 0.5, end: 0 },
+      alpha: { start: 1, end: 0 },
+      lifespan: 500,
+      blendMode: 'ADD',
+      quantity: 15,
+      rotate: { min: 0, max: 360 }
+    });
+
+    // 4. Запускаем "взрыв" и уничтожаем спрайт
+    emitter.explode(15); 
+    this.sprite.destroy();
+
+    // 5. Удаляем эмиттер из памяти через полсекунды
+    this.scene.time.delayedCall(500, () => {
+      emitter.destroy();
+    });
+  }
+
+  // ----------------------------------------------
+
   freeze(duration) {
     this.isFrozen = true;
-    this.sprite.setVelocityX(0); // Останавливаем движение
-    this.sprite.setTint(0x00ffff); // Синий цвет льда
+    this.sprite.setVelocityX(0);
+    this.sprite.setTint(0x00ffff);
     
-    // Снимаем заморозку через указанное время
     this.scene.time.delayedCall(duration, () => {
       this.isFrozen = false;
       this.sprite.clearTint();
@@ -36,12 +78,11 @@ export default class Enemy {
   }
 
   update(playerX, playerY) {
-    // ЗАЩИТА: Если спрайт или его физическое тело еще не готовы
-    if (!this.sprite || !this.sprite.body) {
+    // Если враг был удален (умер), метод update вызывать нельзя
+    if (!this.sprite || !this.sprite.body || !this.sprite.active) {
       return;
     }
 
-    // Если враг заморожен, пропускаем логику патрулирования/преследования
     if (this.isFrozen) {
       this.sprite.setVelocityX(0);
       return;
@@ -77,7 +118,6 @@ export default class Enemy {
       this.sprite.setVelocityX(0);
     }
 
-    // Прыжок если стена впереди
     if ((this.sprite.body.blocked.right || this.sprite.body.blocked.left)
          && this.sprite.body.blocked.down) {
       this.sprite.setVelocityY(-400);
@@ -106,7 +146,7 @@ export default class Enemy {
         fontSize: '12px', fill: '#ff0000'
       });
     }
-    // Индикатор отображаем, даже если враг заморожен, чтобы игрок видел опасность
+    
     if (!this.isFrozen && dist < ENEMY_CHASE_DIST) {
       this.dangerText.setText('❗');
       this.dangerText.setPosition(this.sprite.x - 6, this.sprite.y - 30);
@@ -119,9 +159,10 @@ export default class Enemy {
     this.sprite.setPosition(x, y);
     this.sprite.setVelocity(ENEMY_PATROL_SPEED, 0);
     this.isChasing = false;
-    this.isFrozen = false; // Сбрасываем заморозку
+    this.isFrozen = false;
     this.direction = 1;
     this.sprite.clearTint();
+    this.sprite.body.enable = true; // Включаем физику обратно
   }
 
   get x() { return this.sprite.x; }

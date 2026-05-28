@@ -20,9 +20,33 @@ export default class CollisionManager {
     });
   }
 
-  // Можно добавить дополнительные типы взаимодействий, например, 
-  // если игрок прыгает на врага сверху (система топтания)
   initEnemyStomp(onStomp) {
-     // Здесь можно было бы реализовать логику "прыжка на врага"
+     this.scene.physics.add.overlap(this.player.sprite, this.enemy.sprite, () => {
+      const isFalling = this.player.sprite.body.velocity.y > 0;
+      const isAbove = this.player.sprite.y < this.enemy.sprite.y;
+
+      // Если игрок падает и находится выше врага — это топтание
+      if (isFalling && isAbove) {
+        if (onStomp) onStomp();
+      }
+    });
+  }
+
+  // Метод для умной обработки столкновений
+  initEnemyCollisions(onStomp, onDamage) {
+    this.scene.physics.add.overlap(this.player.sprite, this.enemy.sprite, () => {
+      // 1. Проверяем, "топчет" ли игрок врага
+      const isFalling = this.player.sprite.body.velocity.y > 0;
+      // Добавляем небольшой буфер (например, 20px), чтобы прыжок засчитывался увереннее
+      const isAbove = this.player.sprite.y < this.enemy.sprite.y - 20;
+
+      if (isFalling && isAbove) {
+        // Если прыгнули сверху — вызываем логику убийства врага
+        onStomp();
+      } else {
+        // Во всех остальных случаях (сбоку, снизу) — получаем урон
+        onDamage();
+      }
+    });
   }
 }

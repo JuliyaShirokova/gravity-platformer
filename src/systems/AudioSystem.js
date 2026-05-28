@@ -47,5 +47,34 @@ export function initMusic(scene) {
   });
 }
 
+export function playPoof(scene) {
+  if (!scene.audioCtx) return;
+  const ctx = scene.audioCtx;
+  
+  // Создаем буфер для "белого шума" (длительность 0.3 сек)
+  const duration = 0.3;
+  const bufferSize = ctx.sampleRate * duration;
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+
+  // Заполняем буфер случайными числами (это и есть шум)
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+
+  const noise = ctx.createBufferSource();
+  noise.buffer = buffer;
+
+  const gain = ctx.createGain();
+  
+  // Быстрое затухание для эффекта "пуф"
+  gain.gain.setValueAtTime(0.2, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration);
+
+  noise.connect(gain);
+  gain.connect(ctx.destination);
+  noise.start();
+}
+
 export const WIN_NOTES  = [262, 330, 392, 523, 392, 523, 659];
 export const LOSE_NOTES = [150, 50];

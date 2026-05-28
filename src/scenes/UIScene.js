@@ -6,28 +6,44 @@ export default class UIScene extends Phaser.Scene {
   }
 
   create() {
-    // Текст монет
-    this.scoreText = this.add.text(20, 20, 'Монеты: 0', { 
-      fontSize: '24px', fill: '#ffffff' 
-    }).setScrollFactor(0); // Фиксация на экране
+    const y = 20;
+    const width = this.cameras.main.width; // Получаем ширину экрана автоматически
 
-    // Текст или иконка активного бонуса
-    this.bonusText = this.add.text(20, 50, 'Бонус: Нет', { 
-      fontSize: '20px', fill: '#ffff00' 
-    }).setScrollFactor(0);
+    // 1. Монеты (Слева)
+    this.coinIcon = this.add.image(20, y, 'coin')
+        .setScrollFactor(0)
+        .setOrigin(0, 0.5);
+
+    this.scoreText = this.add.text(40, y, '0', { 
+      fontSize: '20px', fill: '#ffffff' 
+    }).setScrollFactor(0).setOrigin(0, 0.5);
+
+    // 2. Бонусы (Чуть правее монет)
+    this.burgerIcon = this.add.image(120, y, 'burger')
+        .setVisible(false)
+        .setScrollFactor(0);
+        
+    this.icecreamIcon = this.add.image(160, y, 'icecream')
+        .setVisible(false)
+        .setScrollFactor(0);
+
+    // 3. Жизни (Справа)
+    // width - 20 — это отступ от правого края
+    // setOrigin(1, 0.5) — привязывает ПРАВЫЙ край текста к этой координате
+    this.livesText = this.add.text(width - 20, y, '❤️ x3', { 
+      fontSize: '20px', fill: '#ff4444' 
+    }).setScrollFactor(0).setOrigin(1, 0.5);
   }
 
   update() {
-    // Получаем доступ к GameScene, чтобы "подглядывать" за состоянием игры
     const game = this.scene.get('GameScene');
     
-    // Обновляем данные, если сцена игры запущена
-    if (game.player) {
-      this.scoreText.setText(`Монеты: ${game.coinsCount || 0}`);
-      
-      const bonusName = game.player.hasIceCream ? 'Мороженое' : 
-                        (game.player.speedMultiplier > 1 ? 'Бургер' : 'Нет');
-      this.bonusText.setText(`Бонус: ${bonusName}`);
+    if (game && game.player && game.stats) {
+      this.scoreText.setText(game.stats.score.toString());
+      this.livesText.setText('❤️ x' + game.stats.lives);
+
+      this.burgerIcon.setVisible(game.player.speedMultiplier > 1);
+      this.icecreamIcon.setVisible(game.player.hasIceCream);
     }
   }
 }
